@@ -36,6 +36,7 @@ test("desktop flow reveals the artwork", async ({ page }) => {
     page.getByRole("heading", { name: /here.?s what i made for you/i }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /download/i })).toBeVisible();
+  await expect(page.getByText(/studio note/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /mint/i })).toHaveCount(0);
 });
 

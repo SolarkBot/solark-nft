@@ -63,17 +63,6 @@ export function RevealStage({
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[24px] border border-[var(--color-glass-border)] bg-[var(--color-glass-bg)] p-4">
-              <p className="font-body text-[0.7rem] uppercase tracking-[0.24em] text-[var(--color-soft)]">
-                Studio note
-              </p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-ivory)]">
-                Download the finished artwork and keep exploring new directions.
-              </p>
-              <p className="mt-2 font-body text-sm text-[var(--color-muted)]">
-                The atelier is focused entirely on image creation right now.
-              </p>
-            </div>
             <div className="grid gap-3">
               <StudioButton type="button" onClick={onDownload}>
                 Download
