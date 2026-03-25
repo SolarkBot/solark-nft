@@ -25,16 +25,18 @@ test("desktop flow reveals the artwork", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
   await page.getByRole("button", { name: /open notebook/i }).click();
-  await expect(page.locator("[data-orbit-enabled='false']")).toBeVisible();
+  await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
   await expect(page.getByRole("button", { name: /^close notebook$/i }).first()).toBeVisible();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
     "A museum-grade portrait of a brass koi under moonlight",
   );
   await page.getByRole("button", { name: /give to artist/i }).click();
+  await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
 
   await expect(
     page.getByRole("heading", { name: /here.?s what i made for you/i }),
   ).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("[data-orbit-enabled='false']")).toBeVisible();
   await expect(page.getByRole("button", { name: /download/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /back to studio/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /create another/i })).toBeVisible();

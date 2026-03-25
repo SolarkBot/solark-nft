@@ -45,10 +45,18 @@ function IdleOrbitControls({
 
   useEffect(() => {
     const home = orbitHome(performanceTier);
-    const wasIdle = previousPhase.current === "arrival" || previousPhase.current === "invitation";
-    const isIdle = phase === "arrival" || phase === "invitation";
+    const wasInteractive =
+      previousPhase.current === "arrival" ||
+      previousPhase.current === "invitation" ||
+      previousPhase.current === "prompting" ||
+      previousPhase.current === "creating";
+    const isInteractive =
+      phase === "arrival" ||
+      phase === "invitation" ||
+      phase === "prompting" ||
+      phase === "creating";
 
-    if (enabled && (!wasIdle || !isIdle)) {
+    if (enabled && (!wasInteractive || !isInteractive)) {
       camera.position.set(home.position[0], home.position[1], home.position[2]);
       controls.current?.target.set(home.target[0], home.target[1], home.target[2]);
       controls.current?.update();
@@ -97,7 +105,11 @@ export function StudioCanvas(props: {
   errorMessage: string | null;
   isGenerating: boolean;
 }) {
-  const orbitEnabled = props.phase === "arrival" || props.phase === "invitation";
+  const orbitEnabled =
+    props.phase === "arrival" ||
+    props.phase === "invitation" ||
+    props.phase === "prompting" ||
+    props.phase === "creating";
 
   return (
     <div className="absolute inset-0" data-orbit-enabled={orbitEnabled ? "true" : "false"}>

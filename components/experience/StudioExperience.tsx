@@ -179,8 +179,14 @@ export function StudioExperience() {
 
       {(phase === "invitation" || phase === "prompting") && !generation ? (
         <div className="absolute bottom-5 right-5 z-20 md:bottom-10 md:right-10">
-          <StudioButton type="button" variant="secondary" onClick={togglePrompt}>
-            {phase === "prompting" ? "Close notebook" : "Open notebook"}
+          <StudioButton
+            type="button"
+            variant="secondary"
+            onClick={togglePrompt}
+            aria-label={phase === "prompting" ? "Close notebook" : "Open notebook"}
+            className="min-w-14 px-0 text-xl tracking-normal"
+          >
+            <span aria-hidden="true">{phase === "prompting" ? "✕" : "📓"}</span>
           </StudioButton>
         </div>
       ) : null}
