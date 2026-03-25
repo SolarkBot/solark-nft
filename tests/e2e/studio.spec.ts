@@ -54,26 +54,16 @@ test("mobile layout still exposes the notebook CTA", async ({ page, isMobile }) 
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.getByText(/swipe to look around the studio/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /open notebook/i })).toBeVisible();
   await page.getByRole("button", { name: /open notebook/i }).click();
   await expect(page.getByRole("textbox", { name: /prompt/i })).toBeVisible();
 });
 
-test("mobile download uses the native share flow", async ({ page, isMobile }) => {
+test("mobile download falls back to the save screen when share is unavailable", async ({
+  page,
+  isMobile,
+}) => {
   test.skip(!isMobile, "Mobile-only assertion.");
-
-  await page.addInitScript(() => {
-    Object.defineProperty(window.navigator, "canShare", {
-      configurable: true,
-      value: () => true,
-    });
-
-    Object.defineProperty(window.navigator, "share", {
-      configurable: true,
-      value: async () => {
-        (window as typeof window & { __shareCalled?: boolean }).__shareCalled = true;
-      },
-    });
-  });
 
   await page.route("**/api/generate-image", async (route) => {
     await route.fulfill({
@@ -102,12 +92,10 @@ test("mobile download uses the native share flow", async ({ page, isMobile }) =>
     page.getByRole("heading", { name: /here.?s what i made for you/i }),
   ).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: /download/i }).click();
-
-  await expect.poll(async () => {
-    return page.evaluate(() => {
-      return Boolean((window as typeof window & { __shareCalled?: boolean }).__shareCalled);
-    });
-  }).toBe(true);
+  await expect(page).toHaveURL(/\/artwork\/save\?image=/);
+  await expect(page.getByRole("heading", { name: /save your artwork/i })).toBeVisible();
+  await expect(page.getByText(/tap and hold the artwork to save it/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /open image only/i })).toBeVisible();
 });
 
 test("notebook toggle and close preserve the draft", async ({ page }) => {

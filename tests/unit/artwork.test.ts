@@ -1,4 +1,8 @@
-import { buildDownloadFilename, downloadArtwork } from "@/lib/utils/artwork";
+import {
+  buildDownloadFilename,
+  buildMobileSaveViewUrl,
+  downloadArtwork,
+} from "@/lib/utils/artwork";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,6 +23,16 @@ describe("buildDownloadFilename", () => {
     expect(buildDownloadFilename(new Date(2026, 2, 25, 8, 9, 10))).toBe(
       "solarkbot-art-20260325-080910.png",
     );
+  });
+});
+
+describe("buildMobileSaveViewUrl", () => {
+  it("encodes the image data in the save-view URL", () => {
+    expect(
+      buildMobileSaveViewUrl(
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sWwaP8AAAAASUVORK5CYII=",
+      ),
+    ).toContain("/artwork/save?image=data%3Aimage%2Fpng%3Bbase64%2C");
   });
 });
 
@@ -73,5 +87,37 @@ describe("downloadArtwork", () => {
     expect(canShareSpy).toHaveBeenCalledTimes(1);
     expect(shareSpy).toHaveBeenCalledTimes(1);
     expect(createObjectUrl).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the mobile save screen when sharing is unavailable", async () => {
+    const createObjectUrl = vi.spyOn(URL, "createObjectURL");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const location = window.location;
+    const assignSpy = vi.fn();
+
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value:
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Mobile Safari/537.36",
+    });
+
+    delete (window as typeof window & { location?: Location }).location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...location,
+        assign: assignSpy,
+      },
+    });
+
+    await downloadArtwork(
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sWwaP8AAAAASUVORK5CYII=",
+      new Date(2026, 2, 25, 8, 9, 10),
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(assignSpy).toHaveBeenCalledTimes(1);
+    expect(assignSpy.mock.calls[0]?.[0]).toContain("/artwork/save?image=data%3Aimage%2Fpng%3Bbase64%2C");
   });
 });

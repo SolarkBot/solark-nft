@@ -25,6 +25,43 @@ const StudioCanvas = dynamic(
   },
 );
 
+function NotebookIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 4.75h8.5A2.75 2.75 0 0 1 19.25 7.5v11.75H8.75A2.75 2.75 0 0 0 6 22V7.5A2.75 2.75 0 0 1 8.75 4.75Z" />
+      <path d="M8 4.75H6.75A2.75 2.75 0 0 0 4 7.5v10A2.5 2.5 0 0 0 6.5 20H19.25" />
+      <path d="M10.5 9.25h5.5" />
+      <path d="M10.5 12.5h5.5" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </svg>
+  );
+}
+
 async function createArtwork(payload: {
   prompt: string;
   negativePrompt: string;
@@ -178,15 +215,18 @@ export function StudioExperience() {
       ) : null}
 
       {(phase === "invitation" || phase === "prompting") && !generation ? (
-        <div className="absolute bottom-5 right-5 z-20 md:bottom-10 md:right-10">
+        <div
+          className="absolute right-4 z-20 md:right-10 md:bottom-10"
+          style={{ bottom: "max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))" }}
+        >
           <StudioButton
             type="button"
             variant="secondary"
             onClick={togglePrompt}
             aria-label={phase === "prompting" ? "Close notebook" : "Open notebook"}
-            className="min-w-14 px-0 text-xl tracking-normal"
+            className="min-h-14 min-w-14 px-0 text-[var(--color-ivory)] shadow-[0_16px_36px_rgba(0,0,0,0.18)] md:min-h-11 md:min-w-11"
           >
-            <span aria-hidden="true">{phase === "prompting" ? "✕" : "📓"}</span>
+            {phase === "prompting" ? <CloseIcon /> : <NotebookIcon />}
           </StudioButton>
         </div>
       ) : null}

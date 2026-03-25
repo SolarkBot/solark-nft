@@ -48,6 +48,32 @@ async function resolveArtworkBlob(imageUrl: string) {
   return response.blob();
 }
 
+export function buildMobileSaveViewUrl(imageUrl: string) {
+  if (typeof window === "undefined") {
+    return `/artwork/save?image=${encodeURIComponent(imageUrl)}`;
+  }
+
+  const saveUrl = new URL("/artwork/save", window.location.origin);
+  saveUrl.searchParams.set("image", imageUrl);
+  return saveUrl.toString();
+}
+
+function openMobileSaveView(imageUrl: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.location.assign(buildMobileSaveViewUrl(imageUrl));
+}
+
+function isMobileEnvironment() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 export async function downloadArtwork(imageUrl: string, date = new Date()) {
   const filename = buildDownloadFilename(date);
   const blob = await resolveArtworkBlob(imageUrl);
@@ -72,8 +98,18 @@ export async function downloadArtwork(imageUrl: string, date = new Date()) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
+
+        if (isMobileEnvironment()) {
+          openMobileSaveView(imageUrl);
+          return;
+        }
       }
     }
+  }
+
+  if (isMobileEnvironment()) {
+    openMobileSaveView(imageUrl);
+    return;
   }
 
   const objectUrl = URL.createObjectURL(blob);
