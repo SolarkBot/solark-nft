@@ -36,7 +36,13 @@ test("desktop flow reveals the artwork", async ({ page }) => {
     page.getByRole("heading", { name: /here.?s what i made for you/i }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /download/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /back to studio/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /create another/i })).toBeVisible();
   await expect(page.getByText(/studio note/i)).toHaveCount(0);
+  await expect(page.getByText(/a museum-grade portrait of a brass koi under moonlight/i)).toHaveCount(
+    0,
+  );
+  await expect(page.getByText(/1:1\s*-\s*1024x1024/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /mint/i })).toHaveCount(0);
 });
 
