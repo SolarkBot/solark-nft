@@ -1,0 +1,76 @@
+import { expect, test } from "@playwright/test";
+
+const MOCK_IMAGE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sWwaP8AAAAASUVORK5CYII=";
+
+test("desktop flow reveals the artwork", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.route("**/api/generate-image", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        artifactId: "c5d9f5a4-5f79-4811-82d8-f5a2f1d2111b",
+        imageUrl: MOCK_IMAGE,
+        width: 1024,
+        height: 1024,
+        prompt: "A museum-grade portrait of a brass koi under moonlight",
+        aspectRatio: "1:1",
+        provider: "nvidia-build",
+        model: "stabilityai/stable-diffusion-3-medium",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await expect(page.locator("[data-orbit-enabled='false']")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^close notebook$/i }).first()).toBeVisible();
+  await page.getByRole("textbox", { name: /prompt/i }).fill(
+    "A museum-grade portrait of a brass koi under moonlight",
+  );
+  await page.getByRole("button", { name: /give to artist/i }).click();
+
+  await expect(
+    page.getByRole("heading", { name: /here.?s what i made for you/i }),
+  ).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: /download/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /mint/i })).toHaveCount(0);
+});
+
+test("mobile layout still exposes the notebook CTA", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Mobile-only assertion.");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByText(/swipe to look around the studio/i)).toHaveCount(0);
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await expect(page.getByRole("textbox", { name: /prompt/i })).toBeVisible();
+});
+
+test("notebook toggle and close preserve the draft", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("textbox", { name: /prompt/i }).fill(
+    "A graphite heron under amber light",
+  );
+
+  await page.getByRole("button", { name: /^close notebook$/i }).nth(1).click();
+  await expect(page.getByRole("textbox", { name: /prompt/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /open notebook/i })).toBeVisible();
+
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await expect(page.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+    "A graphite heron under amber light",
+  );
+});
+
+test("idle studio shows orbit guidance and no guided room buttons", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
+  await expect(page.getByText(/(drag|swipe) to look around the studio/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /bed nook|wall studies|window view|return/i })).toHaveCount(0);
+});
