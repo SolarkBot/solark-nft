@@ -50,6 +50,58 @@ test("mobile layout still exposes the notebook CTA", async ({ page, isMobile }) 
   await expect(page.getByRole("textbox", { name: /prompt/i })).toBeVisible();
 });
 
+test("mobile download uses the native share flow", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Mobile-only assertion.");
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+
+    Object.defineProperty(window.navigator, "share", {
+      configurable: true,
+      value: async () => {
+        (window as typeof window & { __shareCalled?: boolean }).__shareCalled = true;
+      },
+    });
+  });
+
+  await page.route("**/api/generate-image", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        artifactId: "51d9f5a4-5f79-4811-82d8-f5a2f1d2000a",
+        imageUrl: MOCK_IMAGE,
+        width: 1024,
+        height: 1024,
+        prompt: "A lacquered fox mask on a linen chair",
+        aspectRatio: "1:1",
+        provider: "nvidia-build",
+        model: "stabilityai/stable-diffusion-3-medium",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("textbox", { name: /prompt/i }).fill(
+    "A lacquered fox mask on a linen chair",
+  );
+  await page.getByRole("button", { name: /give to artist/i }).click();
+
+  await expect(
+    page.getByRole("heading", { name: /here.?s what i made for you/i }),
+  ).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: /download/i }).click();
+
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      return Boolean((window as typeof window & { __shareCalled?: boolean }).__shareCalled);
+    });
+  }).toBe(true);
+});
+
 test("notebook toggle and close preserve the draft", async ({ page }) => {
   await page.goto("/");
 

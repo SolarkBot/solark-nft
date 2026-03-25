@@ -11,22 +11,83 @@ export function buildDownloadFilename(date = new Date()) {
   return `solarkbot-art-${year}${month}${day}-${hours}${minutes}${seconds}.png`;
 }
 
-export async function downloadArtwork(imageUrl: string, date = new Date()) {
+function dataUrlToBlob(dataUrl: string) {
+  const [header, payload] = dataUrl.split(",", 2);
+
+  if (!header || payload === undefined) {
+    throw new Error("Unable to download artwork.");
+  }
+
+  const mimeType = header.match(/^data:([^;]+)/)?.[1] ?? "image/png";
+
+  if (header.includes(";base64")) {
+    const binary = atob(payload);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    return new Blob([bytes], { type: mimeType });
+  }
+
+  return new Blob([decodeURIComponent(payload)], { type: mimeType });
+}
+
+async function resolveArtworkBlob(imageUrl: string) {
+  if (imageUrl.startsWith("data:")) {
+    return dataUrlToBlob(imageUrl);
+  }
+
   const response = await fetch(imageUrl);
 
   if (!response.ok) {
     throw new Error("Unable to download artwork.");
   }
 
-  const blob = await response.blob();
+  return response.blob();
+}
+
+export async function downloadArtwork(imageUrl: string, date = new Date()) {
+  const filename = buildDownloadFilename(date);
+  const blob = await resolveArtworkBlob(imageUrl);
+
+  const share = navigator.share?.bind(navigator);
+  const canShare = navigator.canShare?.bind(navigator);
+
+  if (share && typeof File !== "undefined") {
+    const file = new File([blob], filename, {
+      type: blob.type || "image/png",
+      lastModified: date.getTime(),
+    });
+
+    if (!canShare || canShare({ files: [file] })) {
+      try {
+        await share({
+          title: "SolarkBot artwork",
+          files: [file],
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+  }
+
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = objectUrl;
-  link.download = buildDownloadFilename(date);
+  link.download = filename;
+  link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(objectUrl);
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(objectUrl);
+  }, 1_000);
 }
 
 export function describeAspectRatio(aspectRatio: AspectRatio) {
