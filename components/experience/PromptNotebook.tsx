@@ -78,7 +78,7 @@ export function PromptNotebook({
                 className={cn(
                   "rounded-full px-3 py-1.5 text-[0.7rem] font-semibold tracking-[0.18em] uppercase transition",
                   aspectRatio === ratio
-                    ? "bg-[var(--color-ink)] text-[var(--color-ivory)]"
+                    ? "bg-[var(--color-button-primary-bg)] text-[var(--color-button-primary-text)]"
                     : "text-black/48 hover:text-black",
                 )}
                 onClick={() => onAspectRatioChange(ratio)}
