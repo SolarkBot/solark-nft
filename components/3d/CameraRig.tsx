@@ -13,8 +13,8 @@ function cameraForPhase(phase: StudioPhase, performanceTier: PerformanceTier) {
   switch (phase) {
     case "prompting":
       return {
-        position: compact ? new Vector3(-0.55, 2.25, 7.5) : new Vector3(-1.15, 2.18, 6.45),
-        target: new Vector3(-2.55, 0.98, 2.4),
+        position: compact ? new Vector3(0.3, 2.2, 7.7) : new Vector3(-0.05, 2.14, 6.6),
+        target: new Vector3(0.05, 0.98, 2.85),
       };
     case "creating":
       return {
@@ -30,8 +30,8 @@ function cameraForPhase(phase: StudioPhase, performanceTier: PerformanceTier) {
     case "arrival":
     default:
       return {
-        position: compact ? new Vector3(1.1, 2.75, 9.7) : new Vector3(1.05, 2.8, 8.9),
-        target: new Vector3(0.2, 1.3, 0.15),
+        position: compact ? new Vector3(0.95, 2.75, 9.5) : new Vector3(0.9, 2.82, 8.7),
+        target: new Vector3(0.1, 1.28, 1.35),
       };
   }
 }

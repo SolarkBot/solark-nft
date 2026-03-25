@@ -230,18 +230,18 @@ export function StudioScene({
         </mesh>
       </group>
 
-      <group position={[-2.7, -0.1, 2.45]}>
+      <group position={[0.1, -0.1, 2.9]}>
         <mesh castShadow receiveShadow position={[0, 0.45, 0]}>
-          <cylinderGeometry args={[0.95, 1.18, 0.9, 36]} />
+          <cylinderGeometry args={[0.98, 1.22, 0.9, 36]} />
           <meshStandardMaterial color={palette.table} roughness={0.95} metalness={0.1} />
         </mesh>
         <mesh castShadow receiveShadow position={[0, 0.94, 0]}>
-          <boxGeometry args={[2.2, 0.14, 1.3]} />
+          <boxGeometry args={[2.35, 0.14, 1.4]} />
           <meshStandardMaterial color="#b38d63" roughness={0.55} metalness={0.2} />
         </mesh>
         <Float speed={1.1} rotationIntensity={0.08} floatIntensity={0.08}>
           <group
-            position={[0, 1.03, 0.12]}
+            position={[0, 1.03, 0.14]}
             onPointerEnter={() => onHoverNotebook(true)}
             onPointerLeave={() => onHoverNotebook(false)}
             onClick={onTogglePrompt}
@@ -262,7 +262,7 @@ export function StudioScene({
           </group>
         </Float>
         {showPromptInScene ? (
-          <Html transform distanceFactor={1.4} position={[0.2, 1.72, 0.6]} occlude>
+          <Html transform distanceFactor={1.4} position={[0.18, 1.72, 0.72]} occlude>
             <PromptNotebook
               prompt={prompt}
               negativePrompt={negativePrompt}
