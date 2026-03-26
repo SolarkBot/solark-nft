@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Instrument_Sans } from "next/font/google";
 
+import { SolanaProvider } from "@/components/providers/SolanaProvider";
+
 import "./globals.css";
 
 const bodyFont = Instrument_Sans({
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://nft.solarkbot.xyz"),
   title: "SolarkBot Photo Atelier",
   description:
-    "A cinematic 3D studio where the SolarkBot artist turns your prompt into downloadable artwork.",
+    "A cinematic 3D studio where the SolarkBot artist turns your prompt into artwork you can download or mint on Solana.",
 };
 
 export default function RootLayout({
@@ -32,7 +34,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[var(--color-bg)]">{children}</body>
+      <body className="min-h-full flex flex-col bg-[var(--color-bg)]">
+        <SolanaProvider>{children}</SolanaProvider>
+      </body>
     </html>
   );
 }

@@ -3,21 +3,73 @@
 import { motion } from "framer-motion";
 
 import { StudioButton } from "@/components/ui/StudioButton";
-import type { GenerationResult, ThemeMode } from "@/types";
+import type { GenerationResult, MintResult, MintStatus, SolanaNetwork, ThemeMode } from "@/types";
+
+function getNetworkLabel(network: SolanaNetwork) {
+  return network === "mainnet-beta" ? "mainnet" : network;
+}
+
+function getMintButtonLabel(status: MintStatus, network: SolanaNetwork) {
+  const networkLabel = getNetworkLabel(network);
+
+  switch (status) {
+    case "wallet-required":
+      return "Connect Phantom";
+    case "preparing":
+      return "Preparing artwork";
+    case "uploading":
+      return "Uploading to IPFS";
+    case "awaiting-wallet":
+      return "Waiting for wallet";
+    case "minting":
+      return `Minting on ${networkLabel}`;
+    case "minted":
+      return `Minted on ${networkLabel}`;
+    default:
+      return "Mint as NFT";
+  }
+}
 
 export function RevealStage({
   generation,
   themeMode,
+  network,
+  mintStatus,
+  mintError,
+  mintResult,
+  walletConnected,
+  walletConnecting,
+  walletActionLabel,
+  walletHelpText,
   onDownload,
+  onMint,
+  onConnectWallet,
   onCreateAnother,
   onBackToStudio,
 }: {
   generation: GenerationResult;
   themeMode: ThemeMode;
+  network: SolanaNetwork;
+  mintStatus: MintStatus;
+  mintError: string | null;
+  mintResult: MintResult | null;
+  walletConnected: boolean;
+  walletConnecting: boolean;
+  walletActionLabel: string;
+  walletHelpText: string;
   onDownload: () => void;
+  onMint: () => void;
+  onConnectWallet: () => void;
   onCreateAnother: () => void;
   onBackToStudio: () => void;
 }) {
+  const showMintMessage = mintStatus !== "idle" || mintError || mintResult;
+  const mintBusy =
+    mintStatus === "preparing" ||
+    mintStatus === "uploading" ||
+    mintStatus === "awaiting-wallet" ||
+    mintStatus === "minting";
+
   return (
     <motion.section
       initial={{ opacity: 0 }}
@@ -54,11 +106,56 @@ export function RevealStage({
             />
           </div>
 
-          <div className="grid gap-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <StudioButton type="button" onClick={onDownload}>
               Download
             </StudioButton>
+            <StudioButton
+              type="button"
+              onClick={walletConnected ? onMint : onConnectWallet}
+              disabled={mintBusy || mintStatus === "minted" || walletConnecting}
+            >
+              {mintBusy || mintStatus === "minted"
+                ? getMintButtonLabel(mintStatus, network)
+                : walletConnecting
+                  ? "Connecting Phantom"
+                  : walletActionLabel}
+            </StudioButton>
           </div>
+          {showMintMessage ? (
+            <div className="rounded-[24px] border border-[var(--color-glass-border)] bg-[var(--color-notebook-surface)]/70 p-4">
+              {mintResult ? (
+                <div className="space-y-2">
+                  <p className="font-body text-[0.72rem] uppercase tracking-[0.22em] text-[var(--color-gold)]/80">
+                    {getMintButtonLabel("minted", network)}
+                  </p>
+                  <p className="font-body text-sm text-[var(--color-muted)]">
+                    Your artwork is now in your wallet.
+                  </p>
+                  <a
+                    href={mintResult.explorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex text-sm font-medium tracking-[0.08em] text-[var(--color-ivory)] underline underline-offset-4"
+                  >
+                    View on Solscan
+                  </a>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="font-body text-[0.72rem] uppercase tracking-[0.22em] text-[var(--color-gold)]/80">
+                    {mintStatus === "wallet-required" ? "Wallet required" : "Mint status"}
+                  </p>
+                  <p className="font-body text-sm leading-6 text-[var(--color-muted)]">
+                    {mintError ??
+                      (mintStatus === "wallet-required"
+                        ? walletHelpText
+                        : getMintButtonLabel(mintStatus, network))}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <StudioButton type="button" variant="ghost" onClick={onBackToStudio}>
               Back to studio

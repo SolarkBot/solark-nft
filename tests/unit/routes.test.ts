@@ -1,4 +1,5 @@
 import { POST as generateImageRoute } from "@/app/api/generate-image/route";
+import { POST as mintNftRoute } from "@/app/api/mint-nft/route";
 
 vi.mock("@/lib/nvidia/generateImage", () => ({
   generateImageWithNvidia: vi.fn(async () => ({
@@ -13,12 +14,32 @@ vi.mock("@/lib/nvidia/generateImage", () => ({
   })),
 }));
 
+vi.mock("@/lib/ipfs/pinata", () => ({
+  uploadFileToPinata: vi.fn(async () => ({
+    cid: "bafyimagecid",
+    ipfsUri: "ipfs://bafyimagecid",
+    gatewayUrl: "https://gateway.pinata.cloud/ipfs/bafyimagecid",
+  })),
+  uploadJsonToPinata: vi.fn(async () => ({
+    cid: "bafymetadatacid",
+    ipfsUri: "ipfs://bafymetadatacid",
+    gatewayUrl: "https://gateway.pinata.cloud/ipfs/bafymetadatacid",
+  })),
+}));
+
 describe("generate image route", () => {
   beforeEach(() => {
     process.env.NVIDIA_API_KEY = "nvidia";
     process.env.NVIDIA_IMAGE_MODEL = "stabilityai/stable-diffusion-3-medium";
     process.env.NVIDIA_API_BASE_URL =
       "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium";
+    process.env.PINATA_JWT = "pinata";
+    process.env.PINATA_GATEWAY_URL = "https://gateway.pinata.cloud";
+    process.env.SOLANA_RPC_URL = "https://api.devnet.solana.com";
+    process.env.SOLANA_NETWORK = "devnet";
+    process.env.NFT_COLLECTION_NAME = "SolarkBot Creations";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    process.env.NEXT_PUBLIC_SOLANA_NETWORK = "devnet";
   });
 
   it("returns a generation payload", async () => {
@@ -36,5 +57,30 @@ describe("generate image route", () => {
     expect(response.status).toBe(200);
     expect(body.imageUrl).toContain("data:image/jpeg;base64,");
     expect(body.provider).toBe("nvidia-build");
+  });
+
+  it("returns a mint preparation payload", async () => {
+    const response = await mintNftRoute(
+      new Request("http://localhost/api/mint-nft", {
+        method: "POST",
+        body: JSON.stringify({
+          artifactId: "c5d9f5a4-5f79-4811-82d8-f5a2f1d2111b",
+          imageUrl: "data:image/png;base64,aGVsbG8=",
+          width: 1024,
+          height: 1024,
+          prompt: "A museum-grade portrait of a brass koi under moonlight",
+          aspectRatio: "1:1",
+          provider: "nvidia-build",
+          model: "stabilityai/stable-diffusion-3-medium",
+        }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.imageUri).toBe("ipfs://bafyimagecid");
+    expect(body.metadataUri).toBe("ipfs://bafymetadatacid");
+    expect(body.metadata.createdBy).toBe("SolarkBot Artist");
+    expect(body.network).toBe("devnet");
   });
 });

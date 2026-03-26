@@ -1,21 +1,31 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { startTransition, useEffect } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { AnimatePresence } from "framer-motion";
+import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 import { CreationStatus } from "@/components/experience/CreationStatus";
 import { DialogueCaption } from "@/components/experience/DialogueCaption";
 import { PromptNotebook } from "@/components/experience/PromptNotebook";
 import { RevealStage } from "@/components/experience/RevealStage";
+import { getPublicSolanaNetwork, getSolanaEndpoint } from "@/lib/solana/config";
+import { mintNftOnSolana } from "@/lib/solana/mintNft";
+import {
+  hasPhantomProvider,
+  isMobileBrowser,
+  openPhantomInAppBrowser,
+  shouldUsePhantomHandoff,
+} from "@/lib/solana/phantom";
 import { StudioButton } from "@/components/ui/StudioButton";
 import { downloadArtwork } from "@/lib/utils/artwork";
 import { getStageRail, wait } from "@/lib/utils/experience";
 import { detectPerformanceTier } from "@/lib/utils/performance";
 import { getSystemThemeMode, observeSystemTheme } from "@/lib/utils/theme";
 import { useStudioStore } from "@/store/studio-store";
-import type { GenerationResult } from "@/types";
+import type { GenerationResult, MintPreparation, MintResult, MintStatus } from "@/types";
 
 const StudioCanvas = dynamic(
   () => import("@/components/3d/StudioCanvas").then((module) => module.StudioCanvas),
@@ -83,7 +93,38 @@ async function createArtwork(payload: {
   return body as GenerationResult;
 }
 
+async function prepareMint(payload: GenerationResult) {
+  const response = await fetch("/api/mint-nft", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(body.detail ?? body.error ?? "Unable to prepare this artwork for minting.");
+  }
+
+  return body as MintPreparation;
+}
+
+function buildMintResumeUrl(preparation: MintPreparation) {
+  if (typeof window === "undefined") {
+    return "/";
+  }
+
+  const url = new URL("/mint/continue", window.location.origin);
+  url.searchParams.set("metadataUri", preparation.metadataUri);
+  url.searchParams.set("image", preparation.gatewayImageUrl);
+  url.searchParams.set("name", preparation.metadata.name);
+  url.searchParams.set("network", preparation.network);
+  return url.toString();
+}
+
 export function StudioExperience() {
+  const { connected, wallet, connect, select, connecting } = useWallet();
   const {
     phase,
     creationStage,
@@ -114,6 +155,13 @@ export function StudioExperience() {
     startAnother,
     resetToStudio,
   } = useStudioStore();
+  const [mintStatus, setMintStatus] = useState<MintStatus>("idle");
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<MintResult | null>(null);
+  const solanaNetwork = getPublicSolanaNetwork();
+  const solanaEndpoint = getSolanaEndpoint(solanaNetwork);
+  const mobileBrowser = isMobileBrowser();
+  const needsPhantomHandoff = shouldUsePhantomHandoff();
 
   useEffect(() => {
     const configuration = detectPerformanceTier();
@@ -142,7 +190,16 @@ export function StudioExperience() {
     document.documentElement.style.colorScheme = themeMode;
   }, [themeMode]);
 
+  useEffect(() => {
+    if (!wallet) {
+      select(PhantomWalletName);
+    }
+  }, [select, wallet]);
+
   async function handlePromptSubmit() {
+    setMintStatus("idle");
+    setMintError(null);
+    setMintResult(null);
     beginCreation();
 
     try {
@@ -167,6 +224,100 @@ export function StudioExperience() {
       setCreationStage("idle");
       setErrorMessage(error instanceof Error ? error.message : "Unable to complete the artwork.");
       setPhase("prompting");
+    }
+  }
+
+  async function handleMint() {
+    if (!generation) {
+      return;
+    }
+
+    setMintError(null);
+
+    if (needsPhantomHandoff) {
+      try {
+        setMintStatus("preparing");
+        setMintStatus("uploading");
+        const preparation = await prepareMint(generation);
+        openPhantomInAppBrowser(buildMintResumeUrl(preparation), window.location.origin);
+      } catch (error) {
+        setMintStatus("error");
+        setMintError(
+          error instanceof Error ? error.message : "Unable to prepare this artwork for Phantom.",
+        );
+      }
+      return;
+    }
+
+    if (!connected || !wallet?.adapter) {
+      setMintStatus("wallet-required");
+      setMintError(
+        hasPhantomProvider()
+          ? "Connect Phantom to continue on devnet."
+          : "Phantom was not detected. Install the Phantom extension or use the Phantom mobile app.",
+      );
+      return;
+    }
+
+    try {
+      setMintStatus("preparing");
+      setMintStatus("uploading");
+      const preparation = await prepareMint(generation);
+
+      const minted = await mintNftOnSolana({
+        walletAdapter: wallet.adapter,
+        endpoint: solanaEndpoint,
+        network: preparation.network ?? solanaNetwork,
+        metadataUri: preparation.metadataUri,
+        name: preparation.metadata.name,
+        onStatusChange: setMintStatus,
+      });
+
+      setMintResult(minted);
+      setMintStatus("minted");
+    } catch (error) {
+      setMintStatus("error");
+      setMintError(error instanceof Error ? error.message : "Unable to mint this artwork.");
+    }
+  }
+
+  async function handleConnectWallet() {
+    setMintError(null);
+
+    if (needsPhantomHandoff) {
+      if (!generation) {
+        return;
+      }
+
+      try {
+        setMintStatus("preparing");
+        setMintStatus("uploading");
+        const preparation = await prepareMint(generation);
+        openPhantomInAppBrowser(buildMintResumeUrl(preparation), window.location.origin);
+      } catch (error) {
+        setMintStatus("error");
+        setMintError(
+          error instanceof Error ? error.message : "Unable to prepare this artwork for Phantom.",
+        );
+      }
+      return;
+    }
+
+    if (!hasPhantomProvider()) {
+      setMintStatus("wallet-required");
+      setMintError("Phantom was not detected. Install the Phantom extension or use the Phantom mobile app.");
+      window.open("https://phantom.app/", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      setMintStatus("wallet-required");
+      await connect();
+      setMintStatus("idle");
+      setMintError(null);
+    } catch (error) {
+      setMintStatus("wallet-required");
+      setMintError(error instanceof Error ? error.message : "Unable to connect to Phantom.");
     }
   }
 
@@ -271,15 +422,49 @@ export function StudioExperience() {
           <RevealStage
             generation={generation}
             themeMode={themeMode}
+            network={solanaNetwork}
+            mintStatus={mintStatus}
+            mintError={mintError}
+            mintResult={mintResult}
+            walletConnected={connected}
+            walletConnecting={connecting}
+            walletActionLabel={
+              needsPhantomHandoff
+                ? "Open in Phantom"
+                : connected
+                  ? "Mint as NFT"
+                  : "Connect Phantom"
+            }
+            walletHelpText={
+              needsPhantomHandoff
+                ? `Open Phantom to continue your ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork} mint there.`
+                : connected
+                  ? `Mint your artwork on Solana ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork}.`
+                  : mobileBrowser
+                    ? "Connect Phantom or continue in the Phantom app."
+                    : `Connect Phantom to mint this artwork on ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork}.`
+            }
             onDownload={() => {
               void downloadArtwork(generation.imageUrl);
             }}
+            onMint={() => {
+              void handleMint();
+            }}
+            onConnectWallet={() => {
+              void handleConnectWallet();
+            }}
             onCreateAnother={() => {
+              setMintStatus("idle");
+              setMintError(null);
+              setMintResult(null);
               startTransition(() => {
                 startAnother();
               });
             }}
             onBackToStudio={() => {
+              setMintStatus("idle");
+              setMintError(null);
+              setMintResult(null);
               startTransition(() => {
                 resetToStudio();
               });
