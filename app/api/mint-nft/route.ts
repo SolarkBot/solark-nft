@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { uploadFileToPinata, uploadJsonToPinata } from "@/lib/ipfs/pinata";
 import { getMintServerEnv, getPublicEnv } from "@/lib/utils/env";
 import { prepareMintRequestSchema } from "@/lib/utils/validation";
-import type { MintMetadata } from "@/types";
+import type { MintMetadata, PrepareMintRequest } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -27,37 +27,58 @@ function getImagePayload(imageUrl: string) {
 }
 
 function buildMetadata(input: {
+  sourceType: PrepareMintRequest["sourceType"];
   artifactId: string;
-  prompt: string;
+  prompt?: string;
   aspectRatio: string;
-  provider: string;
-  model: string;
+  provider?: string;
+  model?: string;
   width: number;
   height: number;
   image: string;
   contentType: string;
+  fileName?: string;
 }): MintMetadata & Record<string, unknown> {
   const env = getMintServerEnv();
   const { appUrl } = getPublicEnv();
   const createdAt = new Date().toISOString();
   const suffix = input.artifactId.slice(0, 8).toUpperCase();
   const name = `${env.collectionName} #${suffix}`;
-  const description = `A SolarkBot Artist original minted from the prompt: ${input.prompt}`;
+  const promptText =
+    input.sourceType === "generated"
+      ? input.prompt ?? "Created with the SolarkBot Artist"
+      : `Uploaded via SolarkBot Atelier${input.fileName ? `: ${input.fileName}` : ""}`;
+  const description =
+    input.sourceType === "generated"
+      ? `A SolarkBot Artist original minted from the prompt: ${promptText}`
+      : "A user-uploaded artwork curated and minted through the SolarkBot Atelier.";
+  const attributes: MintMetadata["attributes"] = [
+    { trait_type: "Source", value: input.sourceType === "generated" ? "Generated" : "Uploaded" },
+    { trait_type: "Aspect Ratio", value: input.aspectRatio },
+    { trait_type: "Dimensions", value: `${input.width}x${input.height}` },
+  ];
+
+  if (input.provider) {
+    attributes.push({ trait_type: "Provider", value: input.provider });
+  }
+
+  if (input.model) {
+    attributes.push({ trait_type: "Model", value: input.model });
+  }
+
+  if (input.fileName) {
+    attributes.push({ trait_type: "Original File", value: input.fileName });
+  }
 
   return {
     name,
     description,
     image: input.image,
-    prompt: input.prompt,
+    prompt: promptText,
     createdBy: "SolarkBot Artist",
     createdAt,
     external_url: appUrl,
-    attributes: [
-      { trait_type: "Aspect Ratio", value: input.aspectRatio },
-      { trait_type: "Provider", value: input.provider },
-      { trait_type: "Model", value: input.model },
-      { trait_type: "Dimensions", value: `${input.width}x${input.height}` },
-    ],
+    attributes,
     properties: {
       category: "image",
       files: [
@@ -85,6 +106,7 @@ export async function POST(request: Request) {
     });
 
     const metadata = buildMetadata({
+      sourceType: payload.sourceType,
       artifactId: payload.artifactId,
       prompt: payload.prompt,
       aspectRatio: payload.aspectRatio,
@@ -94,6 +116,7 @@ export async function POST(request: Request) {
       height: payload.height,
       image: imageUpload.ipfsUri,
       contentType,
+      fileName: payload.fileName,
     });
 
     const metadataUpload = await uploadJsonToPinata({

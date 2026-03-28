@@ -60,6 +60,11 @@ export function getMintServerEnv() {
 export function getPublicEnv() {
   return {
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    solanaRpcUrl:
+      typeof process.env.NEXT_PUBLIC_SOLANA_RPC_URL === "string" &&
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL.length > 0
+        ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL
+        : undefined,
     solanaNetwork:
       process.env.NEXT_PUBLIC_SOLANA_NETWORK === "mainnet-beta"
         ? "mainnet-beta"

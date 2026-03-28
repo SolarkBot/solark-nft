@@ -7,11 +7,13 @@ import { AnimatePresence } from "framer-motion";
 import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
 import { useWallet } from "@solana/wallet-adapter-react";
 
+import { CreationModePopup } from "@/components/experience/CreationModePopup";
 import { CreationStatus } from "@/components/experience/CreationStatus";
 import { DialogueCaption } from "@/components/experience/DialogueCaption";
 import { PromptNotebook } from "@/components/experience/PromptNotebook";
 import { RevealStage } from "@/components/experience/RevealStage";
-import { getPublicSolanaNetwork, getSolanaEndpoint } from "@/lib/solana/config";
+import { UploadPanel } from "@/components/experience/UploadPanel";
+import { getPublicSolanaNetwork, getSolanaEndpoint, getSolanaNetworkLabel } from "@/lib/solana/config";
 import { mintNftOnSolana } from "@/lib/solana/mintNft";
 import {
   hasPhantomProvider,
@@ -24,8 +26,9 @@ import { downloadArtwork } from "@/lib/utils/artwork";
 import { getStageRail, wait } from "@/lib/utils/experience";
 import { detectPerformanceTier } from "@/lib/utils/performance";
 import { getSystemThemeMode, observeSystemTheme } from "@/lib/utils/theme";
+import { buildUploadedArtwork } from "@/lib/utils/upload";
 import { useStudioStore } from "@/store/studio-store";
-import type { GenerationResult, MintPreparation, MintResult, MintStatus } from "@/types";
+import type { ArtworkSourceType, GenerationResult, MintPreparation, MintResult, MintStatus } from "@/types";
 
 const StudioCanvas = dynamic(
   () => import("@/components/3d/StudioCanvas").then((module) => module.StudioCanvas),
@@ -90,7 +93,10 @@ async function createArtwork(payload: {
     throw new Error(body.detail ?? body.error ?? "The artist could not complete the request.");
   }
 
-  return body as GenerationResult;
+  return {
+    ...(body as GenerationResult),
+    sourceType: "generated",
+  } satisfies GenerationResult;
 }
 
 async function prepareMint(payload: GenerationResult) {
@@ -110,7 +116,7 @@ async function prepareMint(payload: GenerationResult) {
   return body as MintPreparation;
 }
 
-function buildMintResumeUrl(preparation: MintPreparation) {
+function buildMintResumeUrl(preparation: MintPreparation, sourceType: ArtworkSourceType) {
   if (typeof window === "undefined") {
     return "/";
   }
@@ -120,6 +126,7 @@ function buildMintResumeUrl(preparation: MintPreparation) {
   url.searchParams.set("image", preparation.gatewayImageUrl);
   url.searchParams.set("name", preparation.metadata.name);
   url.searchParams.set("network", preparation.network);
+  url.searchParams.set("sourceType", sourceType);
   return url.toString();
 }
 
@@ -132,16 +139,23 @@ export function StudioExperience() {
     themeMode,
     reducedMotion,
     isMobileLayout,
+    isChoicePopupOpen,
+    isUploadPanelOpen,
     prompt,
     negativePrompt,
     aspectRatio,
     hoveredNotebook,
     generation,
+    uploadedArtworkDraft,
     errorMessage,
     isGenerating,
     configurePerformance,
     setThemeMode,
-    togglePrompt,
+    openCreationChoice,
+    closeCreationChoice,
+    chooseGenerationMode,
+    chooseUploadMode,
+    closeUploadPanel,
     closePrompt,
     beginCreation,
     setPhase,
@@ -151,17 +165,22 @@ export function StudioExperience() {
     setNegativePrompt,
     setAspectRatio,
     setHoveredNotebook,
+    setUploadedArtworkDraft,
     setErrorMessage,
     startAnother,
+    startUploadAnother,
     resetToStudio,
   } = useStudioStore();
   const [mintStatus, setMintStatus] = useState<MintStatus>("idle");
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintResult, setMintResult] = useState<MintResult | null>(null);
+  const [isPreparingUpload, setIsPreparingUpload] = useState(false);
   const solanaNetwork = getPublicSolanaNetwork();
   const solanaEndpoint = getSolanaEndpoint(solanaNetwork);
+  const solanaNetworkLabel = getSolanaNetworkLabel(solanaNetwork);
   const mobileBrowser = isMobileBrowser();
   const needsPhantomHandoff = shouldUsePhantomHandoff();
+  const notebookActive = isChoicePopupOpen || isUploadPanelOpen || phase === "prompting";
 
   useEffect(() => {
     const configuration = detectPerformanceTier();
@@ -176,7 +195,9 @@ export function StudioExperience() {
     setThemeMode(getSystemThemeMode());
 
     const invitationTimer = window.setTimeout(() => {
-      setPhase("invitation");
+      if (useStudioStore.getState().phase === "arrival") {
+        setPhase("invitation");
+      }
     }, configuration.reducedMotion ? 120 : 900);
 
     return () => {
@@ -239,7 +260,10 @@ export function StudioExperience() {
         setMintStatus("preparing");
         setMintStatus("uploading");
         const preparation = await prepareMint(generation);
-        openPhantomInAppBrowser(buildMintResumeUrl(preparation), window.location.origin);
+        openPhantomInAppBrowser(
+          buildMintResumeUrl(preparation, generation.sourceType),
+          window.location.origin,
+        );
       } catch (error) {
         setMintStatus("error");
         setMintError(
@@ -253,7 +277,7 @@ export function StudioExperience() {
       setMintStatus("wallet-required");
       setMintError(
         hasPhantomProvider()
-          ? "Connect Phantom to continue on devnet."
+          ? `Connect Phantom to continue on ${solanaNetworkLabel}.`
           : "Phantom was not detected. Install the Phantom extension or use the Phantom mobile app.",
       );
       return;
@@ -293,7 +317,10 @@ export function StudioExperience() {
         setMintStatus("preparing");
         setMintStatus("uploading");
         const preparation = await prepareMint(generation);
-        openPhantomInAppBrowser(buildMintResumeUrl(preparation), window.location.origin);
+        openPhantomInAppBrowser(
+          buildMintResumeUrl(preparation, generation.sourceType),
+          window.location.origin,
+        );
       } catch (error) {
         setMintStatus("error");
         setMintError(
@@ -321,6 +348,56 @@ export function StudioExperience() {
     }
   }
 
+  function handleNotebookTrigger() {
+    if (phase === "prompting") {
+      closePrompt();
+      return;
+    }
+
+    if (isUploadPanelOpen) {
+      closeUploadPanel();
+      return;
+    }
+
+    if (isChoicePopupOpen) {
+      closeCreationChoice();
+      return;
+    }
+
+    openCreationChoice();
+  }
+
+  async function handleUploadFile(file: File) {
+    setMintStatus("idle");
+    setMintError(null);
+    setMintResult(null);
+    setErrorMessage(null);
+    setIsPreparingUpload(true);
+
+    try {
+      const artwork = await buildUploadedArtwork(file);
+      setUploadedArtworkDraft(artwork);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "We couldn’t prepare your piece right now.",
+      );
+    } finally {
+      setIsPreparingUpload(false);
+    }
+  }
+
+  function handleUploadContinue() {
+    if (!uploadedArtworkDraft) {
+      setErrorMessage("We couldn’t prepare your piece right now.");
+      return;
+    }
+
+    setMintStatus("idle");
+    setMintError(null);
+    setMintResult(null);
+    setGeneration(uploadedArtworkDraft);
+  }
+
   const scenePromptVisible = false;
 
   return (
@@ -339,8 +416,9 @@ export function StudioExperience() {
         prompt={prompt}
         negativePrompt={negativePrompt}
         aspectRatio={aspectRatio}
+        notebookActive={notebookActive}
         hoveredNotebook={hoveredNotebook}
-        onTogglePrompt={togglePrompt}
+        onNotebookTrigger={handleNotebookTrigger}
         onClosePrompt={closePrompt}
         onHoverNotebook={setHoveredNotebook}
         onPromptChange={setPrompt}
@@ -365,7 +443,7 @@ export function StudioExperience() {
         <CreationStatus stage={creationStage} reducedMotion={reducedMotion} />
       ) : null}
 
-      {(phase === "invitation" || phase === "prompting") && !generation ? (
+      {(phase === "arrival" || phase === "invitation" || phase === "prompting") && !generation ? (
         <div
           className="absolute right-4 z-20 md:right-10 md:bottom-10"
           style={{ bottom: "max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))" }}
@@ -373,14 +451,29 @@ export function StudioExperience() {
           <StudioButton
             type="button"
             variant="secondary"
-            onClick={togglePrompt}
-            aria-label={phase === "prompting" ? "Close notebook" : "Open notebook"}
+            onClick={handleNotebookTrigger}
+            aria-label={
+              phase === "prompting" || isChoicePopupOpen || isUploadPanelOpen
+                ? "Close notebook"
+                : "Open notebook"
+            }
             className="min-h-14 min-w-14 px-0 text-[var(--color-ivory)] shadow-[0_16px_36px_rgba(0,0,0,0.18)] md:min-h-11 md:min-w-11"
           >
-            {phase === "prompting" ? <CloseIcon /> : <NotebookIcon />}
+            {phase === "prompting" || isChoicePopupOpen || isUploadPanelOpen ? <CloseIcon /> : <NotebookIcon />}
           </StudioButton>
         </div>
       ) : null}
+
+      <AnimatePresence>
+        {isChoicePopupOpen ? (
+          <div className="absolute bottom-24 right-4 z-30 md:bottom-28 md:right-10">
+            <CreationModePopup
+              onChooseGenerate={chooseGenerationMode}
+              onChooseUpload={chooseUploadMode}
+            />
+          </div>
+        ) : null}
+      </AnimatePresence>
 
       {phase === "prompting" && !isMobileLayout ? (
         <div className="absolute bottom-5 left-5 z-30 md:bottom-10 md:left-10">
@@ -395,6 +488,39 @@ export function StudioExperience() {
             onAspectRatioChange={setAspectRatio}
             onClose={closePrompt}
             onSubmit={handlePromptSubmit}
+          />
+        </div>
+      ) : null}
+
+      {isUploadPanelOpen && !isMobileLayout ? (
+        <div className="absolute bottom-5 left-5 z-30 md:bottom-10 md:left-10">
+          <UploadPanel
+            previewUrl={uploadedArtworkDraft?.imageUrl ?? null}
+            fileName={uploadedArtworkDraft?.fileName ?? null}
+            disabled={isPreparingUpload}
+            errorMessage={errorMessage}
+            onChooseFile={(file) => {
+              void handleUploadFile(file);
+            }}
+            onClose={closeUploadPanel}
+            onContinue={handleUploadContinue}
+          />
+        </div>
+      ) : null}
+
+      {isUploadPanelOpen && isMobileLayout ? (
+        <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
+          <UploadPanel
+            compact
+            previewUrl={uploadedArtworkDraft?.imageUrl ?? null}
+            fileName={uploadedArtworkDraft?.fileName ?? null}
+            disabled={isPreparingUpload}
+            errorMessage={errorMessage}
+            onChooseFile={(file) => {
+              void handleUploadFile(file);
+            }}
+            onClose={closeUploadPanel}
+            onContinue={handleUploadContinue}
           />
         </div>
       ) : null}
@@ -437,12 +563,12 @@ export function StudioExperience() {
             }
             walletHelpText={
               needsPhantomHandoff
-                ? `Open Phantom to continue your ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork} mint there.`
+                ? `Open Phantom to continue your ${solanaNetworkLabel} mint there.`
                 : connected
-                  ? `Mint your artwork on Solana ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork}.`
+                  ? `Mint your artwork on Solana ${solanaNetworkLabel}.`
                   : mobileBrowser
                     ? "Connect Phantom or continue in the Phantom app."
-                    : `Connect Phantom to mint this artwork on ${solanaNetwork === "mainnet-beta" ? "mainnet" : solanaNetwork}.`
+                    : `Connect Phantom to mint this artwork on ${solanaNetworkLabel}.`
             }
             onDownload={() => {
               void downloadArtwork(generation.imageUrl);
@@ -458,7 +584,11 @@ export function StudioExperience() {
               setMintError(null);
               setMintResult(null);
               startTransition(() => {
-                startAnother();
+                if (generation.sourceType === "uploaded") {
+                  startUploadAnother();
+                } else {
+                  startAnother();
+                }
               });
             }}
             onBackToStudio={() => {

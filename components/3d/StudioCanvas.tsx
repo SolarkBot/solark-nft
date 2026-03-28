@@ -94,8 +94,9 @@ export function StudioCanvas(props: {
   prompt: string;
   negativePrompt: string;
   aspectRatio: AspectRatio;
+  notebookActive: boolean;
   hoveredNotebook: boolean;
-  onTogglePrompt: () => void;
+  onNotebookTrigger: () => void;
   onHoverNotebook: (hovered: boolean) => void;
   onPromptChange: (value: string) => void;
   onNegativePromptChange: (value: string) => void;

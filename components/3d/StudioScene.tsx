@@ -51,8 +51,9 @@ export function StudioScene({
   prompt,
   negativePrompt,
   aspectRatio,
+  notebookActive,
   hoveredNotebook,
-  onTogglePrompt,
+  onNotebookTrigger,
   onHoverNotebook,
   onPromptChange,
   onNegativePromptChange,
@@ -73,8 +74,9 @@ export function StudioScene({
   prompt: string;
   negativePrompt: string;
   aspectRatio: AspectRatio;
+  notebookActive: boolean;
   hoveredNotebook: boolean;
-  onTogglePrompt: () => void;
+  onNotebookTrigger: () => void;
   onHoverNotebook: (hovered: boolean) => void;
   onPromptChange: (value: string) => void;
   onNegativePromptChange: (value: string) => void;
@@ -244,14 +246,14 @@ export function StudioScene({
             position={[0, 1.03, 0.14]}
             onPointerEnter={() => onHoverNotebook(true)}
             onPointerLeave={() => onHoverNotebook(false)}
-            onClick={onTogglePrompt}
+            onClick={onNotebookTrigger}
           >
             <mesh castShadow rotation={[-0.12, 0.06, 0.08]}>
               <boxGeometry args={[1.3, 0.08, 0.96]} />
               <meshStandardMaterial
-                color={hoveredNotebook || phase === "prompting" ? palette.notebookHot : palette.notebook}
-                emissive={hoveredNotebook || phase === "prompting" ? palette.notebookGlow : "#000000"}
-                emissiveIntensity={hoveredNotebook || phase === "prompting" ? 0.28 : 0}
+                color={hoveredNotebook || notebookActive ? palette.notebookHot : palette.notebook}
+                emissive={hoveredNotebook || notebookActive ? palette.notebookGlow : "#000000"}
+                emissiveIntensity={hoveredNotebook || notebookActive ? 0.28 : 0}
                 roughness={0.6}
               />
             </mesh>

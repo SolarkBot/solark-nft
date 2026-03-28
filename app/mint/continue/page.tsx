@@ -1,5 +1,5 @@
 import { MintContinueScreen } from "@/components/experience/MintContinueScreen";
-import type { SolanaNetwork } from "@/types";
+import type { ArtworkSourceType, SolanaNetwork } from "@/types";
 
 function pickValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
@@ -17,6 +17,10 @@ function parseNetwork(value: string): SolanaNetwork {
   return "devnet";
 }
 
+function parseSourceType(value: string): ArtworkSourceType {
+  return value === "uploaded" ? "uploaded" : "generated";
+}
+
 export default async function MintContinuePage({
   searchParams,
 }: {
@@ -30,6 +34,7 @@ export default async function MintContinuePage({
       metadataUri={pickValue(resolved.metadataUri)}
       name={pickValue(resolved.name)}
       network={parseNetwork(pickValue(resolved.network))}
+      sourceType={parseSourceType(pickValue(resolved.sourceType))}
     />
   );
 }

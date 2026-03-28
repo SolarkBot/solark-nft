@@ -1,22 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 import { StudioButton } from "@/components/ui/StudioButton";
-import { getSolanaEndpoint } from "@/lib/solana/config";
+import { getSolanaEndpoint, getSolanaNetworkLabel } from "@/lib/solana/config";
 import { mintNftOnSolana } from "@/lib/solana/mintNft";
 import { hasPhantomProvider, openPhantomInAppBrowser, shouldUsePhantomHandoff } from "@/lib/solana/phantom";
-import type { MintResult, MintStatus, SolanaNetwork } from "@/types";
+import { useStudioStore } from "@/store/studio-store";
+import type { ArtworkSourceType, MintResult, MintStatus, SolanaNetwork } from "@/types";
 
 interface MintContinueScreenProps {
   imageUrl: string;
   metadataUri: string;
   name: string;
   network: SolanaNetwork;
+  sourceType: ArtworkSourceType;
 }
 
 export function MintContinueScreen({
@@ -24,21 +26,38 @@ export function MintContinueScreen({
   metadataUri,
   name,
   network,
+  sourceType,
 }: MintContinueScreenProps) {
   const { wallet, connected, connect, select } = useWallet();
+  const router = useRouter();
   const [mintStatus, setMintStatus] = useState<MintStatus>("idle");
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintResult, setMintResult] = useState<MintResult | null>(null);
   const endpoint = getSolanaEndpoint(network);
   const canResumeMint = Boolean(metadataUri && name);
   const requiresPhantomHandoff = shouldUsePhantomHandoff();
-  const networkLabel = network === "mainnet-beta" ? "mainnet" : network;
+  const networkLabel = getSolanaNetworkLabel(network);
 
   useEffect(() => {
     if (!wallet) {
       select(PhantomWalletName);
     }
   }, [select, wallet]);
+
+  function handleStartAgain() {
+    if (sourceType === "uploaded") {
+      useStudioStore.getState().startUploadAnother();
+    } else {
+      useStudioStore.getState().startAnother();
+    }
+
+    router.push("/");
+  }
+
+  function handleBackToStudio() {
+    useStudioStore.getState().resetToStudio();
+    router.push("/");
+  }
 
   const heading = mintResult
     ? "Mint completed."
@@ -168,12 +187,14 @@ export function MintContinueScreen({
         )}
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-button-secondary-border)] bg-[var(--color-button-secondary-bg)] px-5 text-sm font-medium uppercase tracking-[0.18em] text-[var(--color-ivory)] transition duration-300 hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-          >
+          {mintResult ? (
+            <StudioButton type="button" variant="ghost" onClick={handleStartAgain}>
+              {sourceType === "uploaded" ? "Upload another" : "Create another"}
+            </StudioButton>
+          ) : null}
+          <StudioButton type="button" variant="ghost" onClick={handleBackToStudio}>
             Back to studio
-          </Link>
+          </StudioButton>
         </div>
       </div>
     </main>

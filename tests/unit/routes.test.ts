@@ -65,6 +65,7 @@ describe("generate image route", () => {
         method: "POST",
         body: JSON.stringify({
           artifactId: "c5d9f5a4-5f79-4811-82d8-f5a2f1d2111b",
+          sourceType: "generated",
           imageUrl: "data:image/png;base64,aGVsbG8=",
           width: 1024,
           height: 1024,
@@ -82,5 +83,28 @@ describe("generate image route", () => {
     expect(body.metadataUri).toBe("ipfs://bafymetadatacid");
     expect(body.metadata.createdBy).toBe("SolarkBot Artist");
     expect(body.network).toBe("devnet");
+  });
+
+  it("returns a mint preparation payload for uploaded artwork", async () => {
+    const response = await mintNftRoute(
+      new Request("http://localhost/api/mint-nft", {
+        method: "POST",
+        body: JSON.stringify({
+          artifactId: "upload-81d9f5a4",
+          sourceType: "uploaded",
+          imageUrl: "data:image/webp;base64,aGVsbG8=",
+          width: 1200,
+          height: 900,
+          aspectRatio: "16:9",
+          fileName: "atelier-piece.webp",
+        }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.metadata.description).toContain("user-uploaded artwork");
+    expect(body.metadata.prompt).toContain("Uploaded via SolarkBot Atelier");
+    expect(body.metadata.attributes.some((item: { trait_type: string; value: string }) => item.trait_type === "Source" && item.value === "Uploaded")).toBe(true);
   });
 });

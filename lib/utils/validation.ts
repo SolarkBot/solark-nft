@@ -13,14 +13,28 @@ const imageUrlSchema = z.union([
   z.string().url(),
 ]);
 
-export const prepareMintRequestSchema = z.object({
+const prepareMintSharedSchema = z.object({
   artifactId: z.string().min(1),
   imageUrl: imageUrlSchema,
   width: z.number().int().positive(),
   height: z.number().int().positive(),
-  prompt: z.string().trim().min(8).max(600),
-  negativePrompt: z.string().trim().max(600).optional(),
   aspectRatio: z.enum(ASPECT_RATIO_OPTIONS),
-  provider: z.string().trim().min(1).max(200),
-  model: z.string().trim().min(1).max(200),
+  fileName: z.string().trim().max(260).optional(),
 });
+
+export const prepareMintRequestSchema = z.discriminatedUnion("sourceType", [
+  prepareMintSharedSchema.extend({
+    sourceType: z.literal("generated"),
+    prompt: z.string().trim().min(8).max(600),
+    negativePrompt: z.string().trim().max(600).optional(),
+    provider: z.string().trim().min(1).max(200),
+    model: z.string().trim().min(1).max(200),
+  }),
+  prepareMintSharedSchema.extend({
+    sourceType: z.literal("uploaded"),
+    prompt: z.string().trim().max(600).optional(),
+    negativePrompt: z.string().trim().max(600).optional(),
+    provider: z.string().trim().max(200).optional(),
+    model: z.string().trim().max(200).optional(),
+  }),
+]);

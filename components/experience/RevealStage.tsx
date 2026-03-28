@@ -3,10 +3,11 @@
 import { motion } from "framer-motion";
 
 import { StudioButton } from "@/components/ui/StudioButton";
+import { getSolanaNetworkLabel } from "@/lib/solana/config";
 import type { GenerationResult, MintResult, MintStatus, SolanaNetwork, ThemeMode } from "@/types";
 
 function getNetworkLabel(network: SolanaNetwork) {
-  return network === "mainnet-beta" ? "mainnet" : network;
+  return getSolanaNetworkLabel(network);
 }
 
 function getMintButtonLabel(status: MintStatus, network: SolanaNetwork) {
@@ -69,6 +70,8 @@ export function RevealStage({
     mintStatus === "uploading" ||
     mintStatus === "awaiting-wallet" ||
     mintStatus === "minting";
+  const restartLabel = generation.sourceType === "uploaded" ? "Upload another" : "Create another";
+  const artworkAlt = generation.prompt ?? generation.fileName ?? "Artwork created in the atelier";
 
   return (
     <motion.section
@@ -101,7 +104,7 @@ export function RevealStage({
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
               src={generation.imageUrl}
-              alt={generation.prompt}
+              alt={artworkAlt}
               className="relative z-10 max-h-full w-auto rounded-[24px] object-contain shadow-[0_40px_120px_rgba(0,0,0,0.38)]"
             />
           </div>
@@ -161,7 +164,7 @@ export function RevealStage({
               Back to studio
             </StudioButton>
             <StudioButton type="button" variant="ghost" onClick={onCreateAnother}>
-              Create another
+              {restartLabel}
             </StudioButton>
           </div>
         </div>

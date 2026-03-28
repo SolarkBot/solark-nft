@@ -49,6 +49,7 @@ Required public variables:
 
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_SOLANA_NETWORK`
+- `NEXT_PUBLIC_SOLANA_RPC_URL`
 
 ## How Image Generation Works
 
@@ -79,7 +80,7 @@ Pinata credentials remain server-only. If Pinata changes its upload API or auth 
 ## Solana Network
 
 - The app currently targets `testnet`.
-- Switch `SOLANA_NETWORK` and `NEXT_PUBLIC_SOLANA_NETWORK` to `devnet` or `mainnet-beta` when you want to move networks.
+- Switch `SOLANA_NETWORK`, `NEXT_PUBLIC_SOLANA_NETWORK`, and `NEXT_PUBLIC_SOLANA_RPC_URL` together when you want to move networks.
 - The current mint is a standalone NFT. It is not a verified collection mint and not a compressed NFT.
 
 ## Scripts
@@ -96,4 +97,4 @@ npm run test:e2e
 
 - The artist is a stylized primitive stand-in rather than a rigged character, with camera choreography and prop motion carrying the performance.
 - Generated images are returned inline and are not persisted between sessions.
-- The current product goal is downloadable image generation only, not on-chain minting.
+- The current Solana mint flow expects Phantom and a wallet funded for the active cluster's transaction fees.

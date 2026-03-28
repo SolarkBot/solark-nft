@@ -26,6 +26,8 @@ test("desktop flow reveals the artwork", async ({ page, isMobile }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await expect(page.getByRole("heading", { name: /what would you like to make/i })).toBeVisible();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await expect(page.locator("[data-orbit-enabled='true']")).toBeVisible();
   await expect(page.getByRole("button", { name: /^close notebook$/i }).first()).toBeVisible();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
@@ -69,6 +71,7 @@ test("mint prompts for a wallet when the user is not connected", async ({ page, 
 
   await page.goto("/");
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
     "A brass ibis beneath a linen sunshade",
   );
@@ -105,6 +108,7 @@ test("mobile reveal offers the Phantom handoff when no wallet is injected", asyn
 
   await page.goto("/");
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
     "A brass ibis beneath a linen sunshade",
   );
@@ -124,6 +128,8 @@ test("mobile layout still exposes the notebook CTA", async ({ page, isMobile }) 
   await expect(page.getByText(/swipe to look around the studio/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /open notebook/i })).toBeVisible();
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await expect(page.getByRole("heading", { name: /what would you like to make/i })).toBeVisible();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await expect(page.getByRole("textbox", { name: /prompt/i })).toBeVisible();
 });
 
@@ -151,6 +157,7 @@ test("mobile download falls back to the save screen when share is unavailable", 
 
   await page.goto("/");
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
     "A lacquered fox mask on a linen chair",
   );
@@ -170,6 +177,7 @@ test("notebook toggle and close preserve the draft", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await page.getByRole("textbox", { name: /prompt/i }).fill(
     "A graphite heron under amber light",
   );
@@ -179,9 +187,37 @@ test("notebook toggle and close preserve the draft", async ({ page }) => {
   await expect(page.getByRole("button", { name: /open notebook/i })).toBeVisible();
 
   await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^generate$/i }).click();
   await expect(page.getByRole("textbox", { name: /prompt/i })).toHaveValue(
     "A graphite heron under amber light",
   );
+});
+
+test("upload path reveals the user image without generation", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Desktop-only assertion.");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /open notebook/i }).click();
+  await page.getByRole("button", { name: /^upload$/i }).click();
+  await expect(page.getByRole("heading", { name: /bring your own piece/i })).toBeVisible();
+
+  await page.locator("input[type='file']").setInputFiles({
+    name: "uploaded-piece.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sWwaP8AAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+
+  await expect(page.getByText(/uploaded-piece\.png/i)).toBeVisible();
+  await page.getByRole("button", { name: /continue/i }).click();
+
+  await expect(
+    page.getByRole("heading", { name: /here.?s what i made for you/i }),
+  ).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("button", { name: /upload another/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /download/i })).toBeVisible();
 });
 
 test("idle studio shows orbit guidance and no guided room buttons", async ({ page, isMobile }) => {

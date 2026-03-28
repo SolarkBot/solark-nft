@@ -15,7 +15,30 @@ export function getPublicSolanaNetwork(): SolanaNetwork {
   return "devnet";
 }
 
-export function getSolanaEndpoint(network: SolanaNetwork) {
+function isValidUrl(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getSolanaNetworkLabel(network: SolanaNetwork) {
+  return network === "mainnet-beta" ? "mainnet" : network;
+}
+
+export function getSolanaEndpoint(network: SolanaNetwork): string {
+  const configuredRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+
+  if (configuredRpcUrl && isValidUrl(configuredRpcUrl)) {
+    return configuredRpcUrl;
+  }
+
   if (network === "mainnet-beta") {
     return clusterApiUrl("mainnet-beta");
   }

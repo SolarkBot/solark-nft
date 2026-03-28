@@ -4,9 +4,13 @@ const DEFAULT_STATE = {
   phase: "arrival" as const,
   creationStage: "idle" as const,
   themeMode: "dark" as const,
+  creationMode: null,
+  isChoicePopupOpen: false,
+  isUploadPanelOpen: false,
   prompt: "",
   negativePrompt: "",
   generation: null,
+  uploadedArtworkDraft: null,
   errorMessage: null,
   hoveredNotebook: false,
   isGenerating: false,
@@ -79,5 +83,120 @@ describe("studio store", () => {
     expect(state.phase).toBe("creating");
     expect(state.creationStage).toBe("thinking");
     expect(state.lastPrompt).toBe("A brass bird in moonlight");
+  });
+
+  it("opens the creation chooser from invitation", () => {
+    useStudioStore.setState({ ...DEFAULT_STATE, phase: "invitation" });
+
+    useStudioStore.getState().openCreationChoice();
+
+    const state = useStudioStore.getState();
+    expect(state.isChoicePopupOpen).toBe(true);
+    expect(state.phase).toBe("invitation");
+  });
+
+  it("switches into upload mode", () => {
+    useStudioStore.setState({ ...DEFAULT_STATE, phase: "invitation", isChoicePopupOpen: true });
+
+    useStudioStore.getState().chooseUploadMode();
+
+    const state = useStudioStore.getState();
+    expect(state.creationMode).toBe("uploaded");
+    expect(state.isChoicePopupOpen).toBe(false);
+    expect(state.isUploadPanelOpen).toBe(true);
+  });
+
+  it("startAnother clears the revealed artwork and opens a fresh prompt flow", () => {
+    useStudioStore.setState({
+      ...DEFAULT_STATE,
+      phase: "reveal",
+      generation: {
+        artifactId: "art-1",
+        sourceType: "generated",
+        imageUrl: "data:image/png;base64,abc",
+        width: 1024,
+        height: 1024,
+        prompt: "A graphite heron",
+        aspectRatio: "1:1",
+        provider: "nvidia-build",
+        model: "stabilityai/stable-diffusion-3-medium",
+      },
+      prompt: "Old prompt",
+      negativePrompt: "text",
+      isGenerating: true,
+    });
+
+    useStudioStore.getState().startAnother();
+
+    const state = useStudioStore.getState();
+    expect(state.phase).toBe("prompting");
+    expect(state.generation).toBeNull();
+    expect(state.prompt).toBe("");
+    expect(state.negativePrompt).toBe("");
+    expect(state.isGenerating).toBe(false);
+  });
+
+  it("resetToStudio clears the revealed artwork without reopening the old reveal", () => {
+    useStudioStore.setState({
+      ...DEFAULT_STATE,
+      phase: "reveal",
+      generation: {
+        artifactId: "art-2",
+        sourceType: "generated",
+        imageUrl: "data:image/png;base64,def",
+        width: 1024,
+        height: 1024,
+        prompt: "A brass ibis",
+        aspectRatio: "1:1",
+        provider: "nvidia-build",
+        model: "stabilityai/stable-diffusion-3-medium",
+      },
+      prompt: "Current draft",
+      lastPrompt: "Remembered draft",
+      isGenerating: true,
+    });
+
+    useStudioStore.getState().resetToStudio();
+
+    const state = useStudioStore.getState();
+    expect(state.phase).toBe("invitation");
+    expect(state.generation).toBeNull();
+    expect(state.prompt).toBe("Remembered draft");
+    expect(state.isGenerating).toBe(false);
+  });
+
+  it("startUploadAnother reopens the upload panel with a clean draft", () => {
+    useStudioStore.setState({
+      ...DEFAULT_STATE,
+      phase: "reveal",
+      creationMode: "uploaded",
+      generation: {
+        artifactId: "art-3",
+        sourceType: "uploaded",
+        imageUrl: "data:image/png;base64,ghi",
+        width: 1000,
+        height: 1000,
+        aspectRatio: "1:1",
+        fileName: "piece.png",
+      },
+      uploadedArtworkDraft: {
+        artifactId: "draft-3",
+        sourceType: "uploaded",
+        imageUrl: "data:image/png;base64,jkl",
+        width: 800,
+        height: 800,
+        aspectRatio: "1:1",
+        fileName: "draft.png",
+      },
+    });
+
+    useStudioStore.getState().startUploadAnother();
+
+    const state = useStudioStore.getState();
+    expect(state.phase).toBe("invitation");
+    expect(state.creationMode).toBe("uploaded");
+    expect(state.isUploadPanelOpen).toBe(true);
+    expect(state.uploadedArtworkDraft).toBeNull();
+    expect(state.generation).toBeNull();
   });
 });

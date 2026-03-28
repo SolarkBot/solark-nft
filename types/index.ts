@@ -3,6 +3,7 @@ export const SOLANA_NETWORK_OPTIONS = ["devnet", "testnet", "mainnet-beta"] as c
 
 export type AspectRatio = (typeof ASPECT_RATIO_OPTIONS)[number];
 export type SolanaNetwork = (typeof SOLANA_NETWORK_OPTIONS)[number];
+export type ArtworkSourceType = "generated" | "uploaded";
 
 export type StudioPhase =
   | "arrival"
@@ -40,26 +41,30 @@ export interface GenerateImageInput {
 
 export interface GenerationResult {
   artifactId: string;
+  sourceType: ArtworkSourceType;
   imageUrl: string;
   width: number;
   height: number;
-  prompt: string;
+  prompt?: string;
   negativePrompt?: string;
   aspectRatio: AspectRatio;
-  provider: string;
-  model: string;
+  provider?: string;
+  model?: string;
+  fileName?: string;
 }
 
 export interface PrepareMintRequest {
   artifactId: string;
+  sourceType: ArtworkSourceType;
   imageUrl: string;
   width: number;
   height: number;
-  prompt: string;
+  prompt?: string;
   negativePrompt?: string;
   aspectRatio: AspectRatio;
-  provider: string;
-  model: string;
+  provider?: string;
+  model?: string;
+  fileName?: string;
 }
 
 export interface MintMetadata {
